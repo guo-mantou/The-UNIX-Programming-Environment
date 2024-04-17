@@ -17,7 +17,7 @@ FILE *efopen(char *file, char *mode)
     exit(1);
 }
 
-char ttyin()
+void ttyin(char *cmd)
 {
     char buf[BUFSIZE];
     static FILE *tty = NULL;
@@ -33,7 +33,8 @@ char ttyin()
             system(buf+1);
             printf("!\n"); /* for split */
         } else {
-            return buf[0];
+            memcpy(cmd, buf, BUFSIZE);
+            return;
         }
     }
 }
@@ -44,10 +45,11 @@ void print(FILE *fp, int pagesize)
     char buf[BUFSIZE] = {0};
     static long stack[BUFSIZE] = {0};
     static int stackNum = 0;
+    int actualPageSize = pagesize;
 
     stack[stackNum++] = ftell(fp);
     while (fgets(buf, sizeof(buf), fp) != NULL) {
-        if (++lines < pagesize) {
+        if (++lines < actualPageSize) {
             fputs(buf, stdout);
             continue;
         }
@@ -55,11 +57,14 @@ void print(FILE *fp, int pagesize)
         fputs(buf, stdout);
         fflush(stdout);
         stack[stackNum++] = ftell(fp);
-        char cmd = ttyin();
-        if (cmd == 'u') {
+        char cmd[BUFSIZE] = {0};
+        ttyin(cmd);
+        if (cmd[0] == 'u') {
             int fpNum = stackNum >= 3 ? stackNum - 3 : 0;
             stackNum -= 2;
             fseek(fp, stack[fpNum], SEEK_SET);
+        } else if (cmd[0] == ':') {
+            actualPageSize = atoi(&cmd[1]);
         }
         lines = 0;
     }
